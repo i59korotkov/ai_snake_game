@@ -45,3 +45,13 @@ class LinearLayer(Layer):
             raise ValueError('Invalid input array shape')
         
         return np.matmul(input, self.w.weights) + self.b.weights
+
+
+class ReLU(Layer):
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def forward(self, input: np.array) -> Any:
+        output = input
+        output[input < 0] = 0
+        return output
