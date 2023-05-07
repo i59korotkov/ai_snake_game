@@ -42,6 +42,6 @@ class LinearLayer(Layer):
     
     def forward(self, input: np.array) -> np.array:
         if len(input.shape) != 2 or input.shape[1] != self.w.shape[0]:
-            raise ValueError('Input array shape in incorrect')
+            raise ValueError('Invalid input array shape')
         
         return np.matmul(input, self.w.weights) + self.b.weights
