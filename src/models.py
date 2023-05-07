@@ -49,7 +49,6 @@ class SnakeAgent(GameAgent):
         output = self.relu(self.input_layer(input))
         output = self.relu(self.hidden_layer1(output))
         output = self.output_layer(output)
-        print(output)
         output = np.argmax(output, axis=1)
         return output
 
@@ -82,33 +81,33 @@ class SnakeAgent(GameAgent):
         snake = game.snake1 if snake_num == CellState.SNAKE1.value else game.snake2
 
         # Calculate distances from head to walls
-        input[0] = snake.queue[-1][0]                      # Distance head to upper wall
-        input[1] = game.grid.shape[0] - snake.queue[-1][0] # Distnace head to lower wall
-        input[2] = snake.queue[-1][1]                      # Distnace head to left wall
-        input[3] = game.grid.shape[1] - snake.queue[-1][1] # Distnace head to right wall
+        input[0, 0] = snake.queue[-1][0]                      # Distance head to upper wall
+        input[0, 1] = game.grid.shape[0] - snake.queue[-1][0] # Distnace head to lower wall
+        input[0, 2] = snake.queue[-1][1]                      # Distnace head to left wall
+        input[0, 3] = game.grid.shape[1] - snake.queue[-1][1] # Distnace head to right wall
 
         # Calculate distance from head to food
         food_pos = np.where(game.grid == CellState.FOOD.value)
         food_pos = (food_pos[0][0], food_pos[1][0])
-        input[4] = snake.queue[-1][0] - food_pos[0] # Y distance head to food (UP direction)
-        input[5] = snake.queue[-1][1] - food_pos[1]  # X distance head to food (LEFT direction)
+        input[0, 4] = snake.queue[-1][0] - food_pos[0] # Y distance head to food (UP direction)
+        input[0, 5] = snake.queue[-1][1] - food_pos[1]  # X distance head to food (LEFT direction)
 
         # Calculate distance from head to tail
-        input[6] = snake.queue[-1][0] - snake.queue[0][0] # Y distance from head to tail (UP direction)
-        input[7] = snake.queue[-1][1] - snake.queue[0][1] # X distance from head to tail (LEFT direction)
+        input[0, 6] = snake.queue[-1][0] - snake.queue[0][0] # Y distance from head to tail (UP direction)
+        input[0, 7] = snake.queue[-1][1] - snake.queue[0][1] # X distance from head to tail (LEFT direction)
 
         # Calculate distances to self body
-        input[8] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.UP, snake_num)
-        input[9] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.DOWN, snake_num)
-        input[10] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.LEFT, snake_num)
-        input[11] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, snake_num)
+        input[0, 8] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.UP, snake_num)
+        input[0, 9] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.DOWN, snake_num)
+        input[0, 10] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.LEFT, snake_num)
+        input[0, 11] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, snake_num)
 
         # Calculate distances to another body
         other_snake_num = CellState.SNAKE1.value if snake_num == CellState.SNAKE2.value else CellState.SNAKE2.value
-        input[12] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
-        input[13] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
-        input[14] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
-        input[15] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
+        input[0, 12] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
+        input[0, 13] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
+        input[0, 14] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
+        input[0, 15] = find_closest_in_grid(game.grid, snake.queue[-1], Direction.RIGHT, other_snake_num)
 
         return input
 
