@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Type, Tuple, Callable
-from heapq import heapify, heappush, heappop, heappushpop
+from heapq import heapify, heappush, heappop
 import random
 import time
 
@@ -26,7 +26,7 @@ class SimpleMutationOptimizer(Optimizer):
         population_size: int = 100,
         best_agents_cnt: int = 10,
         game_grid_shape: Tuple[int, int] = (10, 20),
-        init_steps: int = 100,
+        init_time: int = 100,
     ) -> None:
         super().__init__()
 
@@ -41,7 +41,9 @@ class SimpleMutationOptimizer(Optimizer):
         self.mutation_scale = mutation_scale
         self.population_size = population_size
         self.game_grid_shape = game_grid_shape
-        self.init_steps = init_steps
+        self.init_time = init_time
+
+        self.mean_fitness_history = []
 
         # Initialize top agents
         self.best_agents = [
@@ -56,23 +58,23 @@ class SimpleMutationOptimizer(Optimizer):
 
     def __simulate_game(self, agent1: GameAgent, agent2: GameAgent) -> Tuple[float, float]:
         game = SnakeGame(self.game_grid_shape)
-        steps_left = self.init_steps
+        time_left = self.init_time
 
         try:
-            agent1_prev_len = game.snake1.qsize()
-            agent2_prev_len = game.snake2.qsize()
-            while steps_left > 0:
-                game.update(
-                    agent1.move(game, CellState.SNAKE1.value),
-                    agent2.move(game, CellState.SNAKE2.value),
-                )
+            agent1_prev_len = game.snake1.body.qsize()
+            agent2_prev_len = game.snake2.body.qsize()
+            while time_left > 0:
+                agent1_move = agent1.move(game, game.snake1) if game.snake1.alive else None
+                agent2_move = agent2.move(game, game.snake2) if game.snake2.alive else None
+                game.update(agent1_move, agent2_move)
                 
-                steps_left -= 1
-                # Add steps if any snake ate food
-                steps_left += self.init_steps // 2 * (game.snake1.qsize() - agent1_prev_len + game.snake2.qsize() - agent2_prev_len)
+                # Update time left
+                time_left -= 1
+                time_left += self.init_time // 2 * (game.snake1.body.qsize() - agent1_prev_len + game.snake2.body.qsize() - agent2_prev_len)
                 
-                agent1_prev_len = game.snake1.qsize()
-                agent2_prev_len = game.snake2.qsize()
+                # Update agents length
+                agent1_prev_len = game.snake1.body.qsize()
+                agent2_prev_len = game.snake2.body.qsize()
         except GameEndException:
             pass
 
@@ -80,13 +82,12 @@ class SimpleMutationOptimizer(Optimizer):
 
     def __create_agent(self) -> GameAgent:
         agent = self.agent_class()
-        best_agent = self.best_agents[random.randint(0, len(self.best_agents) - 1)][2]
-        for new_agent_param, best_agent_param in zip(agent.params(), best_agent.params()):
+        random_best_agent = self.best_agents[random.randint(0, len(self.best_agents) - 1)][2]
+        for new_agent_param, best_agent_param in zip(agent.params(), random_best_agent.params()):
             # Copy weights from top agent
             new_agent_param.weights = best_agent_param.weights.copy()
             # Randomly mutate some weights
             mask = np.random.rand(*new_agent_param.weights.shape) <= self.mutation_probability
-            # new_agent_param.weights[mask] += (np.random.rand(*new_agent_param.weights[mask].shape) - 0.5) * 2 * self.mutation_scale
             new_agent_param.weights[mask] +=\
                 np.random.normal(scale=self.mutation_scale, size=new_agent_param.weights[mask].shape)
         return agent
@@ -105,14 +106,14 @@ class SimpleMutationOptimizer(Optimizer):
         self.best_agents = new_best_agents
 
     def fit(self, num_epochs: int = 1):
-        self.mean_fitness_history_ = []
-
         start = time.time()
         for i in range(num_epochs):
             epoch_start = time.time()
             self.__fit_epoch()
+
             mean_fitness = sum([agent[0] for agent in self.best_agents]) / len(self.best_agents)
-            self.mean_fitness_history_.append(mean_fitness)
+            self.mean_fitness_history.append(mean_fitness)
+            
             print(f'Epoch: {i+1:>4}, Mean fitness: {round(mean_fitness, 3):.3f}, Time: {round(time.time() - epoch_start, 2)}s')
         print(f'Total time: {round(time.time() - start, 2)}s')
 
