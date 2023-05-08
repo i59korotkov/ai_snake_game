@@ -29,6 +29,8 @@ class Colors(Enum):
     WHITE = (255, 255, 255)
     BLUE = (0, 0, 255)
     RED = (255, 0, 0)
+    DARK_BLUE = (0, 0, 128)
+    DARK_RED = (128, 0, 0)
 
 
 def reverse_direction(dir: Direction) -> Direction:
@@ -57,10 +59,15 @@ class SnakeGame:
         self.snake2 = Queue()
         self.snake1_is_alive = True
         self.snake2_is_alive = True
+        self.snake1_steps_lived = 0
+        self.snake2_steps_lived = 0
 
+        # Init snakes on random Y positions
+        y_pos1 = random.randint(1, self.grid.shape[0] - 2)
+        y_pos2 = random.randint(1, self.grid.shape[0] - 2)
         for x in range(3):
-            self.snake1.put((1, 1 + x))
-            self.snake2.put((self.grid.shape[0] - 2, self.grid.shape[1] - 2 - x))
+            self.snake1.put((y_pos1, 1 + x))
+            self.snake2.put((y_pos2, self.grid.shape[1] - 2 - x))
         
         for cell in self.snake1.queue:
             self.grid[cell] = CellState.SNAKE1.value
@@ -68,6 +75,9 @@ class SnakeGame:
             self.grid[cell] = CellState.SNAKE2.value
 
     def __move_snake(self, snake: Queue, dir: Direction, snake_num: int) -> bool:
+        if snake_num == 1 and not self.snake1_is_alive or snake_num == 2 and not self.snake2_is_alive:
+            return False
+
         # Get new head position
         if dir == Direction.UP:
             head = snake.queue[-1]
@@ -119,13 +129,18 @@ class SnakeGame:
         else:
             self.snake2_is_alive = self.__move_snake(self.snake2, snake2_move_dir, CellState.SNAKE2.value)
             self.snake1_is_alive = self.__move_snake(self.snake1, snake1_move_dir, CellState.SNAKE1.value)
+        
+        if self.snake1_is_alive:
+            self.snake1_steps_lived += 1
+        if self.snake2_is_alive:
+            self.snake2_steps_lived += 1
 
         if not (self.grid == CellState.FOOD.value).any():
             # Generate food if it was eaten
             self.__generate_food()
 
         self.step += 1
-        if not self.snake1_is_alive or not self.snake2_is_alive:
+        if not self.snake1_is_alive and not self.snake2_is_alive:
             # End game if any snake died
             raise GameEndException()
     
@@ -133,6 +148,8 @@ class SnakeGame:
         image = np.zeros((*self.grid.shape, 3), dtype=int)
         image[np.where(self.grid == CellState.EMPTY.value)] = Colors.BLACK.value
         image[np.where(self.grid == CellState.SNAKE1.value)] = Colors.BLUE.value
+        image[self.snake1.queue[-1]] = Colors.DARK_BLUE.value
         image[np.where(self.grid == CellState.SNAKE2.value)] = Colors.RED.value
+        image[self.snake2.queue[-1]] = Colors.DARK_RED.value
         image[np.where(self.grid == CellState.FOOD.value)] = Colors.WHITE.value
         return image
