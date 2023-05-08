@@ -8,7 +8,7 @@ class Parameter:
     SCALE = 1
 
     def __init__(self, *args: int) -> None:
-        self.weights = (np.random.rand(*args) - 0.5) * 2 * self.SCALE
+        self.weights = np.random.normal(scale=self.SCALE, size=args)
         self.shape = self.weights.shape
 
     def __str__(self) -> str:
