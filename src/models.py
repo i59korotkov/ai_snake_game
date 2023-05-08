@@ -25,7 +25,7 @@ class Model(ABC):
 
 class GameAgent(Model):
     @abstractmethod
-    def extract_input(self, game: SnakeGame, snake_num: int) -> np.array:
+    def extract_input(self, game: SnakeGame, snake: SnakeInfo) -> np.array:
         pass
 
     @abstractmethod
@@ -33,7 +33,7 @@ class GameAgent(Model):
         pass
 
     @abstractmethod
-    def move(self, game: SnakeGame, snake_num: int) -> Direction:
+    def move(self, game: SnakeGame, snake: SnakeInfo) -> Direction:
         pass
 
 
