@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Type, Tuple, Callable
-from heapq import heapify, heappushpop
+from heapq import heapify, heappush, heappop, heappushpop
 import random
 import time
 
@@ -24,7 +24,7 @@ class SimpleMutationOptimizer(Optimizer):
         mutation_probability: float = 0.01,
         mutation_scale: float = 1.0,
         population_size: int = 100,
-        top_agents_cnt: int = 10,
+        best_agents_cnt: int = 10,
         game_grid_shape: Tuple[int, int] = (10, 20),
         init_steps: int = 100,
     ) -> None:
@@ -32,7 +32,7 @@ class SimpleMutationOptimizer(Optimizer):
 
         if population_size % 2 == 1:
             raise ValueError('Population size must be even')
-        if top_agents_cnt > population_size:
+        if best_agents_cnt > population_size:
             raise ValueError('Top agents count cannot be greater than population size')
 
         self.agent_class = agent_class
@@ -44,15 +44,15 @@ class SimpleMutationOptimizer(Optimizer):
         self.init_steps = init_steps
 
         # Initialize top agents
-        self.top_agents = [
+        self.best_agents = [
             self.agent_class()
-            for _ in range(top_agents_cnt)
+            for _ in range(best_agents_cnt)
         ]
-        self.top_agents = [
+        self.best_agents = [
             (0, id(agent), agent)
-            for agent in self.top_agents
+            for agent in self.best_agents
         ]
-        heapify(self.top_agents)
+        heapify(self.best_agents)
 
     def __simulate_game(self, agent1: GameAgent, agent2: GameAgent) -> Tuple[float, float]:
         game = SnakeGame(self.game_grid_shape)
@@ -68,8 +68,8 @@ class SimpleMutationOptimizer(Optimizer):
                 )
                 
                 steps_left -= 1
-                # Add 10 steps if any snake ate food
-                steps_left += 10 * (game.snake1.qsize() - agent1_prev_len + game.snake2.qsize() - agent2_prev_len)
+                # Add steps if any snake ate food
+                steps_left += self.init_steps // 2 * (game.snake1.qsize() - agent1_prev_len + game.snake2.qsize() - agent2_prev_len)
                 
                 agent1_prev_len = game.snake1.qsize()
                 agent2_prev_len = game.snake2.qsize()
@@ -80,28 +80,41 @@ class SimpleMutationOptimizer(Optimizer):
 
     def __create_agent(self) -> GameAgent:
         agent = self.agent_class()
-        top_agent = self.top_agents[random.randint(0, len(self.top_agents) - 1)][2]
-        for new_agent_param, top_agent_param in zip(agent.params(), top_agent.params()):
+        best_agent = self.best_agents[random.randint(0, len(self.best_agents) - 1)][2]
+        for new_agent_param, best_agent_param in zip(agent.params(), best_agent.params()):
             # Copy weights from top agent
-            new_agent_param.weights = top_agent_param.weights
+            new_agent_param.weights = best_agent_param.weights.copy()
             # Randomly mutate some weights
             mask = np.random.rand(*new_agent_param.weights.shape) <= self.mutation_probability
-            new_agent_param.weights[mask] += (np.random.rand(*new_agent_param.weights[mask].shape) - 0.5) * 2 * self.mutation_scale
+            # new_agent_param.weights[mask] += (np.random.rand(*new_agent_param.weights[mask].shape) - 0.5) * 2 * self.mutation_scale
+            new_agent_param.weights[mask] +=\
+                np.random.normal(scale=self.mutation_scale, size=new_agent_param.weights[mask].shape)
         return agent
 
     def __fit_epoch(self):
+        new_best_agents = []
         for _ in range(self.population_size // 2):
             agent1, agent2 = self.__create_agent(), self.__create_agent()
             fitness1, fitness2 = self.__simulate_game(agent1, agent2)
-            heappushpop(self.top_agents, (fitness1, id(agent1), agent1))
-            heappushpop(self.top_agents, (fitness2, id(agent2), agent2))
+            
+            heappush(new_best_agents, (fitness1, id(agent1), agent1))
+            heappush(new_best_agents, (fitness2, id(agent2), agent2))
+
+            while len(new_best_agents) > len(self.best_agents):
+                heappop(new_best_agents)
+        self.best_agents = new_best_agents
 
     def fit(self, num_epochs: int = 1):
+        self.mean_fitness_history_ = []
+
+        start = time.time()
         for i in range(num_epochs):
-            start = time.time()
+            epoch_start = time.time()
             self.__fit_epoch()
-            mean_fitness = sum([agent[0] for agent in self.top_agents]) / len(self.top_agents)
-            print(f'Epoch: {i+1:>4}, Mean fitness: {round(mean_fitness, 3)}, Time: {round(time.time() - start, 2)}s')
+            mean_fitness = sum([agent[0] for agent in self.best_agents]) / len(self.best_agents)
+            self.mean_fitness_history_.append(mean_fitness)
+            print(f'Epoch: {i+1:>4}, Mean fitness: {round(mean_fitness, 3):.3f}, Time: {round(time.time() - epoch_start, 2)}s')
+        print(f'Total time: {round(time.time() - start, 2)}s')
 
 
 class GeneticOptimizer(Optimizer):
